@@ -1,0 +1,22 @@
+{
+  "name": "Cromise",
+  "version": "1.0.0",
+  "description": "A Promise/A+ specification implementation",
+  "main": "cromise.js",
+  "scripts": {
+    "test": "node --use_strict --harmony test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pixcai/Cromise.git"
+  },
+  "keywords": [
+    "Promise"
+  ],
+  "author": "pixcai",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pixcai/Cromise/issues"
+  },
+  "homepage": "https://github.com/pixcai/Cromise#readme"
+}
