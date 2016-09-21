@@ -1,16 +1,18 @@
 const Cromise = require('./cromise')
 
-const c = new Cromise((resolve, reject) => {
+const fn = (resolve, reject) => {
 	const value = 1
 
 	console.log('input: ', value)
 	resolve(value);
-	console.log('input after')
-})
+}
+const then = value => {
+	console.log('then: ', value)
+	return ++value
+}
 
-c.then(value => {
-	console.log('output: ', value)
-})
+console.log('Cromise:')
+new Cromise(fn).then(then).then(then)
 
-const b = Cromise.resolve(1)
-console.log(b)
+console.log('Promise:')
+new Promise(fn).then(then).then(then)

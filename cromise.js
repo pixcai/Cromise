@@ -23,13 +23,13 @@ function __transition(cromise, state, value) {
 
   if (state === FULFILLED) {
     while (handlers.length) {
-      handlers.shift().fulfill(cromise.value)
+      handlers.shift().fulfill(cromise._value)
     }
     __fulfill.call(cromise, value)
   }
   if (state === REJECTED) {
     while (handlers.length) {
-      handlers.shift().reject(cromise.value)
+      handlers.shift().reject(cromise._value)
     }
     __reject.call(cromise, value)
   }
@@ -56,7 +56,7 @@ function __resolve(cromise) {
         }, reason => {
           __transition(
             this,
-            REJECTED, error
+            REJECTED, reason
           )
         })
       }
@@ -77,7 +77,7 @@ function __resolve(cromise) {
 class Cromise {
   constructor(fn) {
     /* store value or error once FULFILLED or REJECTED */
-    this._value = null
+    this._value = undefined
       /* store state which can be PENDING, FULFILLED or REJECTED */
     this._state = PENDING
       /* store handlers for PENDING state */
@@ -168,7 +168,12 @@ class Cromise {
         })
         return
       }
-      this.done(onFulfilled, onRejected)
+      if (this._state === FULFILLED) {
+        __transition(this, FULFILLED, resolve(onFulfilled(this._value)))
+      }
+      if (this._state === REJECTED) {
+        __transition(this, REJECTED, reject(onRejected(this._value)))
+      }
     })
   }
 }
