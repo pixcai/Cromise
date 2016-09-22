@@ -7,34 +7,24 @@ const PENDING = Symbol('pending')
 const REJECTED = Symbol('rejected')
 const FULFILLED = Symbol('fulfilled')
 
-function __fulfill(cromise, value) {
-  cromise._state = FULFILLED
-  cromise._value = value
-}
-
-function __reject(cromise, reason) {
-  cromise._state = REJECTED
-  cromise._value = reason
-}
-
 /* Transition to either the fulfilled or rejected state. */
 function __transition(cromise, state, value) {
-  if (state === FULFILLED) {
+  cromise._state = state
+  cromise._value = value
+
+  if (state === FULFILLED && isFunction(cromise._handler.fulfill)) {
     try {
-      value = cromise._handler.fulfill(value)
-      __fulfill(cromise, value)
+      cromise._handler.fulfill(cromise._value)
     } catch(error) {
-      state = REJECTED
-      value = error
+      cromise._state = state = REJECTED
+      cromise._value = error
     }
   }
-  if (state === REJECTED) {
+  if (state === REJECTED && isFunction(cromise._handler.reject)) {
     try {
-      value = cromise._handler.reject(value)
+      cromise._handler.reject(cromise._value)
     } catch(error) {
-      value = error
-    } finally {
-      __reject(cromise, value)
+      cromise._value = error
     }
   }
 }
@@ -49,39 +39,33 @@ const isFunction = f => typeof f === 'function'
  * Otherwise, it fulfills promise with the value x.
  */
 function __resolve(cromise, x) {
-  try {
-    if (x instanceof Cromise) {
-      __transition(
-        cromise,
-        x._state, x._value
-      )
-    }
-    if (isObject(x) || isFunction(x)) {
-      if (isFunction(x.then)) {
-        x.then(value => {
-          __transition(
-            cromise,
-            FULFILLED, value
-          )
-        }, reason => {
-          __transition(
-            cromise,
-            REJECTED, reason
-          )
-        })
-        return
-      }
-    }
+  if (x instanceof Cromise) {
     __transition(
       cromise,
-      FULFILLED, x
+      x._state, x._value
     )
-  } catch (error) {
-    __transition(
-      cromise,
-      REJECTED, error
-    )
+    return
   }
+  if (isObject(x) || isFunction(x)) {
+    if (isFunction(x.then)) {
+      x.then(value => {
+        __transition(
+          cromise,
+          FULFILLED, value
+        )
+      }, reason => {
+        __transition(
+          cromise,
+          REJECTED, reason
+        )
+      })
+      return
+    }
+  }
+  __transition(
+    cromise,
+    FULFILLED, x
+  )
 }
 
 class Cromise {
@@ -91,10 +75,10 @@ class Cromise {
       /* store state which can be PENDING, FULFILLED or REJECTED */
     this._state = PENDING
       /* store handlers for PENDING state */
-    this._handler = { fulfill: value => value, reject: reason => { throw reason } }
+    this._handler = {}
 
     if (isFunction(fn)) {
-      fn(value => __resolve(this, value), reason => __reject(this, reason))
+      fn(value => __resolve(this, value), reason => __transition(this, REJECTED, reason))
     }
   }
 
@@ -196,20 +180,18 @@ class Cromise {
    * If the onRejected handler is not a function, it defaults to a function that always throws (i.e. function (reason) { throw reason; }).
    */
   then(onFulfilled, onRejected) {
+    const maybe = (fn, value) => (isFunction(fn) ? fn(value) : value)
+    
     return new Cromise((resolve, reject) => {
       if (this._state === PENDING) {
-        if (isFunction(onFulfilled)) {
-          this._handler.fulfill = onFulfilled
-        }
-        if (isFunction(onRejected)) {
-          this._handler.reject = onRejected
-        }
-      } else {
-        this.done(
-          value => resolve(onFulfilled(value)),
-          reason => reject(onRejected(reason))
-        )
+        this._handler.fulfill = value => resolve(maybe(onFulfilled, value))
+        this._handler.reject = reason => reject(maybe(onRejected, reason))
+        return
       }
+      this.done(
+        value => resolve(maybe(onFulfilled, value)), 
+        reason => reject(maybe(onRejected, reason))
+      )
     })
   }
 }
